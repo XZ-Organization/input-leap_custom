@@ -72,6 +72,15 @@ TEST_F(MSWindowsClipboardTests, empty_openCalled_returnsTrue)
     EXPECT_EQ(true, actual);
 }
 
+TEST(MSWindowsClipboardPreservationTests, remoteOwnershipChanged_doesNotChangeClipboardSequence)
+{
+    MSWindowsClipboard clipboard(nullptr);
+    const DWORD sequenceBefore = GetClipboardSequenceNumber();
+
+    EXPECT_TRUE(clipboard.remoteOwnershipChanged());
+    EXPECT_EQ(sequenceBefore, GetClipboardSequenceNumber());
+}
+
 TEST_F(MSWindowsClipboardTests, empty_singleFormat_hasReturnsFalse)
 {
     MSWindowsClipboard clipboard(nullptr);

@@ -53,6 +53,14 @@ public:
     */
     bool emptyUnowned();
 
+    //! Handle a remote clipboard ownership notification
+    /*!
+    Record the notification without changing the Windows clipboard.  A
+    remote ownership notification carries no clipboard payload, so existing
+    local data must remain available until the payload arrives.
+    */
+    bool remoteOwnershipChanged();
+
     //! Test if clipboard is owned by InputLeap
     static bool is_owned_by_us();
 

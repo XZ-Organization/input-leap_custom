@@ -385,19 +385,13 @@ bool
 MSWindowsScreen::setClipboard(ClipboardID, const IClipboard* src)
 {
     MSWindowsClipboard dst(m_window);
-    if (src != nullptr) {
-        // save clipboard data
-        return Clipboard::copy(&dst, src);
+
+    if (src == nullptr) {
+        return dst.remoteOwnershipChanged();
     }
-    else {
-        // assert clipboard ownership
-        if (!dst.open(0)) {
-            return false;
-        }
-        dst.clear();
-        dst.close();
-        return true;
-    }
+
+    // save clipboard data
+    return Clipboard::copy(&dst, src);
 }
 
 void
