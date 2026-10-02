@@ -22,6 +22,90 @@
 
 namespace inputleap {
 
+TEST(ClipboardTests, unmarshall_trailingData_preservesClipboard)
+{
+    Clipboard clipboard;
+    clipboard.open(42);
+    clipboard.clear();
+    clipboard.add(IClipboard::kText, "keep this copy");
+    clipboard.close();
+
+    // A zero-format header must not have trailing data.
+    EXPECT_FALSE(clipboard.unmarshall(std::string(4, '\0') + "unexpected", 99));
+
+    EXPECT_EQ(42, clipboard.getTime());
+    clipboard.open(0);
+    EXPECT_TRUE(clipboard.has(IClipboard::kText));
+    EXPECT_EQ("keep this copy", clipboard.get(IClipboard::kText));
+    clipboard.close();
+}
+
+TEST(ClipboardTests, unmarshall_eachTruncation_preservesClipboard)
+{
+    Clipboard source;
+    source.open(0);
+    source.add(IClipboard::kText, "text");
+    source.add(IClipboard::kHTML, "<b>text</b>");
+    source.close();
+    const auto data = source.marshall();
+    for (std::size_t length = 0; length < data.size(); ++length) {
+        SCOPED_TRACE(length);
+        Clipboard destination;
+        destination.open(42);
+        destination.clear();
+        destination.add(IClipboard::kText, "keep");
+        destination.close();
+        EXPECT_FALSE(destination.unmarshall(data.substr(0, length), 99));
+        EXPECT_EQ(42, destination.getTime());
+        destination.open(0);
+        EXPECT_EQ("keep", destination.get(IClipboard::kText));
+        EXPECT_FALSE(destination.has(IClipboard::kHTML));
+        destination.close();
+    }
+}
+
+TEST(ClipboardTests, unmarshall_unknownHighBitFormat_skipsItAndReadsKnownFormat)
+{
+    // Two formats: UINT32_MAX (unknown), followed by one byte of text.
+    const unsigned char bytes[] = {
+        0, 0, 0, 2, 255, 255, 255, 255, 0, 0, 0, 1, 'x',
+        0, 0, 0, 0, 0, 0, 0, 1, 'y'
+    };
+    Clipboard clipboard;
+    ASSERT_TRUE(clipboard.unmarshall(std::string(reinterpret_cast<const char*>(bytes),
+                                                sizeof(bytes)), 10));
+    clipboard.open(0);
+    EXPECT_EQ("y", clipboard.get(IClipboard::kText));
+    clipboard.close();
+}
+
+TEST(ClipboardTests, unmarshall_oversizedLength_rejectsWithoutChangingContents)
+{
+    const unsigned char bytes[] = {0, 0, 0, 1, 0, 0, 0, 0, 255, 255, 255, 255};
+    Clipboard clipboard;
+    clipboard.open(0);
+    clipboard.add(IClipboard::kText, "keep");
+    clipboard.close();
+    EXPECT_FALSE(clipboard.unmarshall(std::string(reinterpret_cast<const char*>(bytes),
+                                                 sizeof(bytes)), 0));
+    clipboard.open(0);
+    EXPECT_EQ("keep", clipboard.get(IClipboard::kText));
+    clipboard.close();
+}
+
+TEST(ClipboardTests, unmarshall_validEmptyClipboard_stillClearsMemoryCache)
+{
+    Clipboard clipboard;
+    clipboard.open(0);
+    clipboard.add(IClipboard::kText, "old");
+    clipboard.close();
+    EXPECT_TRUE(clipboard.unmarshall(std::string(4, '\0'), 42));
+    EXPECT_EQ(42, clipboard.getTime());
+    clipboard.open(0);
+    EXPECT_FALSE(clipboard.has(IClipboard::kText));
+    clipboard.close();
+}
+
 TEST(ClipboardTests, empty_openCalled_returnsTrue)
 {
     Clipboard clipboard;

@@ -386,7 +386,10 @@ Client::sendClipboard(ClipboardID id)
     if (clipboard.open(m_timeClipboard[id])) {
         clipboard.close();
     }
-    m_screen->getClipboard(id, &clipboard);
+    if (!m_screen->getClipboard(id, &clipboard)) {
+        LOG_WARN("cannot read clipboard %d; keeping previous clipboard data", id);
+        return;
+    }
 
     // check time
     if (m_timeClipboard[id] == 0 ||
@@ -398,7 +401,7 @@ Client::sendClipboard(ClipboardID id)
         std::string data = clipboard.marshall();
         if (data.size() >= m_maximumClipboardSize) {
             LOG_NOTE("Skipping clipboard transfer because the clipboard"
-                " contents exceeds the %zi MB size limit set by the server",
+                " contents exceeds the %zi byte size limit set by the server",
                 m_maximumClipboardSize);
             return;
         }

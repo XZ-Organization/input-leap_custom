@@ -467,7 +467,10 @@ bool ClientProxy1_6::recvClipboard()
         LOG_DEBUG("received client \"%s\" clipboard %d seqnum=%d, size=%zd",
                 getName().c_str(), id, seq, dataCached.size());
         // save clipboard
-        m_clipboard[id].m_clipboard.unmarshall(dataCached, 0);
+        if (!m_clipboard[id].m_clipboard.unmarshall(dataCached, 0)) {
+            LOG_WARN("ignoring invalid clipboard %d from client \"%s\"", id, getName().c_str());
+            return true;
+        }
         m_clipboard[id].m_sequenceNumber = seq;
 
         // notify

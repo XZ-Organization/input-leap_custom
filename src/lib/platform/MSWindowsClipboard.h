@@ -53,6 +53,10 @@ public:
     */
     bool emptyUnowned();
 
+    // Stage supported formats before replacing Windows contents. An empty
+    // or unsupported transfer is not a request to erase the local clipboard.
+    bool copyFrom(const IClipboard& src);
+
     //! Handle a remote clipboard ownership notification
     /*!
     Record the notification without changing the Windows clipboard.  A

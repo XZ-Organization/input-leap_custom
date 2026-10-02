@@ -156,6 +156,7 @@ public:
     virtual std::string getName() const override;
 
 private:
+    friend class ClientClipboardTests;
     void sendClipboard(ClipboardID);
     void send_event(EventType);
     void sendConnectionFailedEvent(const char* msg);

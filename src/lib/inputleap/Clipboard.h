@@ -37,9 +37,10 @@ public:
     //! Unmarshall clipboard data
     /*!
     Extract marshalled clipboard data and store it in this clipboard.
-    Sets the clipboard time to \c time.
+    Sets the clipboard time to \c time on success. Invalid data returns false
+    and leaves contents unchanged.
     */
-    void unmarshall(const std::string& data, Time time);
+    bool unmarshall(const std::string& data, Time time);
 
     //@}
     //! @name accessors
