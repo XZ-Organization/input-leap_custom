@@ -567,7 +567,10 @@ ServerProxy::setClipboard()
 
         // forward
         Clipboard clipboard;
-        clipboard.unmarshall(dataCached, 0);
+        if (!clipboard.unmarshall(dataCached, 0)) {
+            LOG_WARN("ignoring invalid clipboard %d data", id);
+            return;
+        }
         m_client->setClipboard(id, &clipboard);
 
         LOG_INFO("clipboard was updated");

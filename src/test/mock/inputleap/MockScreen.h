@@ -37,6 +37,7 @@ public:
     MOCK_METHOD0(resetOptions, void());
     MOCK_METHOD1(setOptions, void(const OptionsList&));
     MOCK_METHOD0(enable, void());
+    MOCK_CONST_METHOD2(getClipboard, bool(ClipboardID, IClipboard*));
 };
 
 } // namespace inputleap

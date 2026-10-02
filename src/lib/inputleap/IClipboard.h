@@ -144,9 +144,10 @@ public:
     //! Unmarshall clipboard data
     /*!
     Extract marshalled clipboard data and store it in \p clipboard.
-    Sets the clipboard time to \c time.
+    Sets the clipboard time to \c time on success. Returns false for invalid
+    data or an inaccessible clipboard. Invalid data leaves contents unchanged.
     */
-    static void unmarshall(IClipboard* clipboard, const std::string& data, Time time);
+    static bool unmarshall(IClipboard* clipboard, const std::string& data, Time time);
 
     //! Copy clipboard
     /*!

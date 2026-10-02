@@ -103,10 +103,10 @@ std::string Clipboard::get(EFormat format) const
     return m_data[format];
 }
 
-void
+bool
 Clipboard::unmarshall(const std::string& data, Time time)
 {
-    IClipboard::unmarshall(this, data, time);
+    return IClipboard::unmarshall(this, data, time);
 }
 
 std::string Clipboard::marshall() const

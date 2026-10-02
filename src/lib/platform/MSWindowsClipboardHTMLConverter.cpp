@@ -19,6 +19,7 @@
 #include "platform/MSWindowsClipboardHTMLConverter.h"
 
 #include "base/String.h"
+#include <charconv>
 
 namespace inputleap {
 
@@ -82,9 +83,12 @@ std::string MSWindowsClipboardHTMLConverter::doToIClipboard(const std::string& d
     }
 
     // convert args to integers
-    std::int32_t start = (std::int32_t)atoi(startArg.c_str());
-    std::int32_t end   = (std::int32_t)atoi(endArg.c_str());
-    if (start <= 0 || end <= 0 || start >= end) {
+    std::size_t start = 0;
+    std::size_t end = 0;
+    const auto startResult = std::from_chars(startArg.data(), startArg.data() + startArg.size(), start);
+    const auto endResult = std::from_chars(endArg.data(), endArg.data() + endArg.size(), end);
+    if (startResult.ec != std::errc() || endResult.ec != std::errc() ||
+        start == 0 || start >= end || end > data.size()) {
         return std::string();
     }
 

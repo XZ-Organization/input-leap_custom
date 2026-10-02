@@ -294,7 +294,7 @@ private:
     // owner and as a link in the clipboard viewer chain.
     HWND m_window;
     HWND m_nextClipboardWindow;
-    bool m_ownClipboard;
+    DWORD m_clipboardSequence;
 
     // one desk per desktop and a cond var to communicate with it
     MSWindowsDesks* m_desks;

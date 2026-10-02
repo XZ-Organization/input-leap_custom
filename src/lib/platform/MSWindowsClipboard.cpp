@@ -25,6 +25,7 @@
 #include "platform/MSWindowsClipboardFacade.h"
 #include "arch/win32/ArchMiscWindows.h"
 #include "base/Log.h"
+#include <memory>
 
 namespace inputleap {
 
@@ -93,6 +94,41 @@ MSWindowsClipboard::clear()
     }
 
     return true;
+}
+
+bool MSWindowsClipboard::copyFrom(const IClipboard& src)
+{
+    using ClipboardHandle = std::unique_ptr<void, decltype(&GlobalFree)>;
+    std::vector<std::pair<UINT, ClipboardHandle>> converted;
+    if (!src.open(src.getTime())) {
+        return false;
+    }
+    for (const auto* converter : m_converters) {
+        if (src.has(converter->getFormat())) {
+            ClipboardHandle handle(converter->fromIClipboard(src.get(converter->getFormat())),
+                                   &GlobalFree);
+            if (handle) {
+                converted.emplace_back(converter->getWin32Format(), std::move(handle));
+            }
+        }
+    }
+    src.close();
+    if (converted.empty()) {
+        LOG_DEBUG("preserving local clipboard: no supported remote contents");
+        return false;
+    }
+    if (!open(src.getTime())) {
+        return false;
+    }
+    const bool cleared = clear();
+    if (cleared) {
+        for (auto& format : converted) {
+            // The facade takes ownership, including freeing on failure.
+            m_facade->write(format.second.release(), format.first);
+        }
+    }
+    close();
+    return cleared;
 }
 
 void

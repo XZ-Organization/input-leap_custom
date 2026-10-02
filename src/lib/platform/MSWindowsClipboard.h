@@ -53,6 +53,10 @@ public:
     */
     bool emptyUnowned();
 
+    // Stage supported formats before replacing Windows contents. An empty
+    // or unsupported transfer is not a request to erase the local clipboard.
+    bool copyFrom(const IClipboard& src);
+
     //! Test if clipboard is owned by InputLeap
     static bool is_owned_by_us();
 

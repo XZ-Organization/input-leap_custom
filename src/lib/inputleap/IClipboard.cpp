@@ -22,43 +22,46 @@
 
 namespace inputleap {
 
-void IClipboard::unmarshall(IClipboard* clipboard, const std::string& data, Time time)
+bool IClipboard::unmarshall(IClipboard* clipboard, const std::string& data, Time time)
 {
     assert(clipboard != nullptr);
 
-    const char* index = data.data();
-
-    if (clipboard->open(time)) {
-        // clear existing data
-        clipboard->clear();
-
-        // read the number of formats
-        const std::uint32_t numFormats = readUInt32(index);
-        index += 4;
-
-        // read each format
-        for (std::uint32_t i = 0; i < numFormats; ++i) {
-            // get the format id
-            IClipboard::EFormat format =
-                static_cast<IClipboard::EFormat>(readUInt32(index));
-            index += 4;
-
-            // get the size of the format data
-            std::uint32_t size = readUInt32(index);
-            index += 4;
-
-            // save the data if it's a known format.  if either the client
-            // or server supports more clipboard formats than the other
-            // then one of them will get a format >= kNumFormats here.
-            if (format <IClipboard::kNumFormats) {
-                clipboard->add(format, std::string(index, size));
-            }
-            index += size;
-        }
-
-        // done
-        clipboard->close();
+    // Validate the entire untrusted payload before opening or clearing the
+    // destination. Keep format IDs unsigned until their range is checked.
+    if (data.size() < 4) {
+        return false;
     }
+    const auto numFormats = readUInt32(data.data());
+    std::size_t offset = 4;
+    std::vector<std::pair<EFormat, std::string>> formats;
+    for (std::uint32_t i = 0; i < numFormats; ++i) {
+        if (data.size() - offset < 8) {
+            return false;
+        }
+        const auto format = readUInt32(data.data() + offset);
+        const auto size = readUInt32(data.data() + offset + 4);
+        offset += 8;
+        if (size > data.size() - offset) {
+            return false;
+        }
+        // Unknown formats are allowed for compatibility with newer peers.
+        if (format < kNumFormats) {
+            formats.emplace_back(static_cast<EFormat>(format), data.substr(offset, size));
+        }
+        offset += size;
+    }
+    if (offset != data.size() || !clipboard->open(time)) {
+        return false;
+    }
+    if (!clipboard->clear()) {
+        clipboard->close();
+        return false;
+    }
+    for (const auto& format : formats) {
+        clipboard->add(format.first, format.second);
+    }
+    clipboard->close();
+    return true;
 }
 
 std::string IClipboard::marshall(const IClipboard* clipboard)

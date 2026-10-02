@@ -110,7 +110,7 @@ MSWindowsScreen::MSWindowsScreen(
     m_screensaverActive(false),
     m_window(nullptr),
     m_nextClipboardWindow(nullptr),
-    m_ownClipboard(false),
+    m_clipboardSequence(GetClipboardSequenceNumber()),
     m_desks(nullptr),
     m_keyState(nullptr),
     m_hasMouse(GetSystemMetrics(SM_MOUSEPRESENT) != 0),
@@ -387,15 +387,13 @@ MSWindowsScreen::setClipboard(ClipboardID, const IClipboard* src)
     MSWindowsClipboard dst(m_window);
     if (src != nullptr) {
         // save clipboard data
-        return Clipboard::copy(&dst, src);
+        return dst.copyFrom(*src);
     }
     else {
-        // assert clipboard ownership
-        if (!dst.open(0)) {
-            return false;
-        }
-        dst.clear();
-        dst.close();
+        // A grab announces remote ownership, not available remote data.
+        // Preserve local contents until a usable transfer arrives. Track
+        // subsequent local copies without having to erase/tag the clipboard.
+        m_clipboardSequence = GetClipboardSequenceNumber();
         return true;
     }
 }
@@ -403,23 +401,8 @@ MSWindowsScreen::setClipboard(ClipboardID, const IClipboard* src)
 void
 MSWindowsScreen::checkClipboards()
 {
-    // if we think we own the clipboard but we don't then somebody
-    // grabbed the clipboard on this screen without us knowing.
-    // tell the server that this screen grabbed the clipboard.
-    //
-    // this works around bugs in the clipboard viewer chain.
-    // sometimes NT will simply never send WM_DRAWCLIPBOARD
-    // messages for no apparent reason and rebooting fixes the
-    // problem.  since we don't want a broken clipboard until the
-    // next reboot we do this double check.  clipboard ownership
-    // won't be reflected on other screens until we leave but at
-    // least the clipboard itself will work.
-    if (m_ownClipboard && !MSWindowsClipboard::is_owned_by_us()) {
-        LOG_DEBUG("clipboard changed: lost ownership and no notification received");
-        m_ownClipboard = false;
-        sendClipboardEvent(EventType::CLIPBOARD_GRABBED, kClipboardClipboard);
-        sendClipboardEvent(EventType::CLIPBOARD_GRABBED, kClipboardSelection);
-    }
+    // Also detect changes when a clipboard viewer-chain notification is lost.
+    onClipboardChange();
 }
 
 void
@@ -496,8 +479,7 @@ bool
 MSWindowsScreen::getClipboard(ClipboardID, IClipboard* dst) const
 {
     MSWindowsClipboard src(m_window);
-    Clipboard::copy(dst, &src);
-    return true;
+    return Clipboard::copy(dst, &src);
 }
 
 void MSWindowsScreen::getShape(std::int32_t& x, std::int32_t& y, std::int32_t& w,
@@ -1447,19 +1429,14 @@ MSWindowsScreen::onDisplayChange()
 bool
 MSWindowsScreen::onClipboardChange()
 {
-    // now notify client that somebody changed the clipboard (unless
-    // we're the owner).
-    if (!MSWindowsClipboard::is_owned_by_us()) {
-        if (m_ownClipboard) {
-            LOG_DEBUG("clipboard changed: lost ownership");
-            m_ownClipboard = false;
+    const DWORD sequence = GetClipboardSequenceNumber();
+    if (sequence != m_clipboardSequence) {
+        m_clipboardSequence = sequence;
+        if (!MSWindowsClipboard::is_owned_by_us()) {
+            LOG_DEBUG("clipboard changed locally");
             sendClipboardEvent(EventType::CLIPBOARD_GRABBED, kClipboardClipboard);
             sendClipboardEvent(EventType::CLIPBOARD_GRABBED, kClipboardSelection);
         }
-    }
-    else if (!m_ownClipboard) {
-        LOG_DEBUG("clipboard changed: got ownership");
-        m_ownClipboard = true;
     }
 
     return true;
