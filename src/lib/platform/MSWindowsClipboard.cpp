@@ -79,6 +79,13 @@ MSWindowsClipboard::emptyUnowned()
 }
 
 bool
+MSWindowsClipboard::remoteOwnershipChanged()
+{
+    LOG_DEBUG("remote clipboard ownership changed; preserving local clipboard until data arrives");
+    return true;
+}
+
+bool
 MSWindowsClipboard::clear()
 {
     if (!emptyUnowned()) {

@@ -385,17 +385,17 @@ bool
 MSWindowsScreen::setClipboard(ClipboardID, const IClipboard* src)
 {
     MSWindowsClipboard dst(m_window);
-    if (src != nullptr) {
-        // save clipboard data
-        return dst.copyFrom(*src);
-    }
-    else {
+
+    if (src == nullptr) {
         // A grab announces remote ownership, not available remote data.
         // Preserve local contents until a usable transfer arrives. Track
         // subsequent local copies without having to erase/tag the clipboard.
         m_clipboardSequence = GetClipboardSequenceNumber();
-        return true;
+        return dst.remoteOwnershipChanged();
     }
+
+    // save clipboard data
+    return dst.copyFrom(*src);
 }
 
 void
