@@ -77,7 +77,7 @@ contents. Failures are now detected and retried within a bounded budget; a
 permanent native failure can still leave incomplete contents. No clipboard-history
 access or clipboard-content logging was added.
 
-## Intermittent clipboard delivery (2026-10-03, not deployed)
+## Intermittent clipboard delivery (2026-10-03, PC1 deployed; PC2 pending)
 
 Two conditions reproduced the stale-paste symptom in isolation: a clipboard lock
 covering incoming writes, and a primary copy notification delivered after the
@@ -122,7 +122,26 @@ Follow-up evidence: `C:\Retention_Artifact\inputleap-setup\premerge-review-20261
 Initial evidence: `C:\Retention_Artifact\inputleap-setup\clipboard-review-20261003`
 (`regression-before`, `regression-after`, `regression-debug`, `full-release` logs
 and JSON results). Release binaries are in `build-clipboard\bin\Release` under
-the same artifact root. They are development outputs from the modified working
-tree, not the previously deployed `2b661ac` package. No service replacement,
-remote commit, merge, or operational PC1/PC2 validation has been performed for
-this follow-up change.
+the same artifact root. Those are development outputs, distinct from the
+production rebuild described below.
+
+### Follow-up rollout
+
+- PR #3 merged as `fa1575a6e9ee61212879e8ebb7f0882e7cc5b23d`. Production cores
+  were rebuilt from that clean merged source in `build-production-fa1575a`.
+- PC1 (`XZ04`) deployed successfully on 2026-10-03. Both existing runtime
+  directories were updated; file equality, service/core startup and TCP 24800
+  listening were verified. PC2 at `192.168.0.19` reconnected. No GUI was running
+  before deployment; none was started. Service registration and settings were
+  preserved. This connection check does not verify interactive copy/paste.
+- Rollback files and service exports:
+  `C:\Retention_Artifact\inputleap-setup\deployment-XZ04-20261003-230503`.
+  Deployment result: `production-fa1575a\deployment-result.json` under the same
+  artifact root.
+- PC2 update is still pending: remote service administration returned Access
+  Denied; no PC2 binaries or access settings were changed. Extract the
+  [production ZIP](https://github.com/XZ-Organization/input-leap_custom/releases/tag/clipboard-fa1575a)
+  on PC2 and run its `Deploy.ps1` from administrator PowerShell. Require
+  `Status: Deployed` in `deployment-result.json`, then verify pointer switching
+  and copy/paste in both directions. The package preserves existing settings,
+  includes backups/automatic rollback, and does not install Bonjour.
