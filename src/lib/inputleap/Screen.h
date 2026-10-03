@@ -95,9 +95,10 @@ public:
     //! Set clipboard
     /*!
     Sets the system's clipboard contents.  This is usually called
-    soon after an enter().
+    soon after an enter(). Returns true if applied immediately; a platform
+    may retry a temporary failure asynchronously.
     */
-    void setClipboard(ClipboardID, const IClipboard*);
+    bool setClipboard(ClipboardID, const IClipboard*);
 
     //! Grab clipboard
     /*!

@@ -27,6 +27,7 @@
 #include "platform/MSWindowsKeyState.h"
 #include "platform/MSWindowsScreenSaver.h"
 #include "inputleap/Clipboard.h"
+#include "inputleap/option_types.h"
 #include "inputleap/KeyMap.h"
 #include "inputleap/XScreen.h"
 #include "inputleap/App.h"
@@ -234,6 +235,7 @@ MSWindowsScreen::enable()
 void
 MSWindowsScreen::disable()
 {
+    cancelClipboardRetry();
     // stop tracking the active desk
     m_desks->disable();
 
@@ -384,18 +386,62 @@ void MSWindowsScreen::send_drag_thread()
 bool
 MSWindowsScreen::setClipboard(ClipboardID, const IClipboard* src)
 {
-    MSWindowsClipboard dst(m_window);
+    cancelClipboardRetry();
 
     if (src == nullptr) {
         // A grab announces remote ownership, not available remote data.
         // Preserve local contents until a usable transfer arrives. Track
         // subsequent local copies without having to erase/tag the clipboard.
         m_clipboardSequence = GetClipboardSequenceNumber();
+        MSWindowsClipboard dst(m_window);
         return dst.remoteOwnershipChanged();
     }
 
-    // save clipboard data
-    return dst.copyFrom(*src);
+    // Both protocol clipboard IDs map to one native clipboard on Windows.
+    // Only the latest incoming payload should survive a temporary lock.
+    m_pendingClipboard = std::make_unique<Clipboard>();
+    if (!Clipboard::copy(m_pendingClipboard.get(), src)) {
+        m_pendingClipboard.reset();
+        return false;
+    }
+    m_pendingClipboardSequence = GetClipboardSequenceNumber();
+    m_clipboardApplyAttempts = 0;
+    return applyPendingClipboard();
+}
+
+void MSWindowsScreen::cancelClipboardRetry()
+{
+    if (m_clipboardRetryTimer != nullptr) {
+        m_events->remove_handler(EventType::TIMER, m_clipboardRetryTimer);
+        m_events->deleteTimer(m_clipboardRetryTimer);
+        m_clipboardRetryTimer = nullptr;
+    }
+    m_pendingClipboard.reset();
+}
+
+bool MSWindowsScreen::applyPendingClipboard()
+{
+    MSWindowsClipboard dst(m_window);
+    const auto result = dst.copyFrom(*m_pendingClipboard, &m_pendingClipboardSequence);
+    if (result == MSWindowsClipboard::CopyResult::Unavailable && ++m_clipboardApplyAttempts <= 20) {
+        // Keep mouse/keyboard events responsive while another app holds the clipboard.
+        m_clipboardRetryTimer = m_events->newOneShotTimer(0.05, nullptr);
+        m_events->add_handler(EventType::TIMER, m_clipboardRetryTimer, [this](const auto&) {
+            m_events->remove_handler(EventType::TIMER, m_clipboardRetryTimer);
+            m_events->deleteTimer(m_clipboardRetryTimer);
+            m_clipboardRetryTimer = nullptr;
+            applyPendingClipboard();
+        });
+        return false;
+    }
+    if (result == MSWindowsClipboard::CopyResult::Unavailable) {
+        LOG_WARN("clipboard apply retry limit reached; remote contents were not fully applied");
+    }
+    else if (result == MSWindowsClipboard::CopyResult::Superseded) {
+        LOG_DEBUG("cancelled clipboard apply: newer local clipboard contents");
+    }
+    m_pendingClipboard.reset();
+    return result == MSWindowsClipboard::CopyResult::Success;
 }
 
 void
@@ -456,6 +502,12 @@ MSWindowsScreen::resetOptions()
 void
 MSWindowsScreen::setOptions(const OptionsList& options)
 {
+    for (std::size_t i = 0; i + 1 < options.size(); i += 2) {
+        if ((options[i] == kOptionClipboardSharing ||
+             options[i] == kOptionClipboardSharingSize) && options[i + 1] == 0) {
+            cancelClipboardRetry();
+        }
+    }
     m_desks->setOptions(options);
 }
 

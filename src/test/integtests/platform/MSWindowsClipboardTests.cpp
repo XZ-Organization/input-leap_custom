@@ -49,7 +49,7 @@ private:
 class MockFacade : public IMSWindowsClipboardFacade
 {
 public:
-    MOCK_METHOD2(write, void(HANDLE, UINT));
+    MOCK_METHOD2(write, bool(HANDLE, UINT));
 };
 
 TEST_F(MSWindowsClipboardTests, emptyUnowned_openCalled_returnsTrue)

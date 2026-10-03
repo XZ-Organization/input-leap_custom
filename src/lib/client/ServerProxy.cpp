@@ -573,7 +573,7 @@ ServerProxy::setClipboard()
         }
         m_client->setClipboard(id, &clipboard);
 
-        LOG_INFO("clipboard was updated");
+        LOG_INFO("clipboard data received");
     }
 }
 

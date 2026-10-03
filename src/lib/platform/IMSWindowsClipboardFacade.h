@@ -27,7 +27,8 @@ class IMSWindowsClipboardConverter;
 
 class IMSWindowsClipboardFacade {
 public:
-    virtual void write(HANDLE win32Data, UINT win32Format) = 0;
+    // Takes ownership of win32Data, including freeing it on failure.
+    virtual bool write(HANDLE win32Data, UINT win32Format) = 0;
     virtual ~IMSWindowsClipboardFacade() { }
 };
 

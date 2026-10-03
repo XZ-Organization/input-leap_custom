@@ -148,10 +148,10 @@ PrimaryClient::setClipboard(ClipboardID id, const IClipboard* clipboard)
 {
     // ignore if this clipboard is already clean
     if (m_clipboardDirty[id]) {
-        // this clipboard is now clean
+        // Dirty means not yet submitted, not waiting for native completion.
+        // The platform owns retries; resubmitting a completed or superseded
+        // delivery would overwrite a newer local copy on the next entry.
         m_clipboardDirty[id] = false;
-
-        // set clipboard
         m_screen->setClipboard(id, clipboard);
     }
 }

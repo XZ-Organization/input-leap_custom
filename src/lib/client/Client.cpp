@@ -260,7 +260,9 @@ Client::leave()
 void
 Client::setClipboard(ClipboardID id, const IClipboard* clipboard)
 {
-     m_screen->setClipboard(id, clipboard);
+    if (!m_screen->setClipboard(id, clipboard)) {
+        LOG_DEBUG("clipboard %d received but not applied immediately", id);
+    }
     m_ownClipboard[id]  = false;
     m_sentClipboard[id] = false;
 }

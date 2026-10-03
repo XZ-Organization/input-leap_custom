@@ -47,6 +47,7 @@ class ClientListener;
 
 /// This class implements the top-level server algorithms for InputLeap.
 class Server : public INode, public EventTarget {
+    friend class ServerClipboardTests;
 public:
     //! Lock cursor to screen data
     class LockCursorToScreenInfo {
@@ -321,6 +322,8 @@ private:
 
     // event processing
     void onClipboardChanged(BaseClientProxy* sender, ClipboardID id, std::uint32_t seqNum);
+    void retryPrimaryClipboard(ClipboardID id);
+    void cancelClipboardReadTimer();
     void onScreensaver(bool activated);
     void onKeyDown(KeyID, KeyModifierMask, KeyButton,
                             const char* screens);
@@ -423,6 +426,9 @@ private:
 
     // clipboard cache
     ClipboardInfo m_clipboards[kClipboardEnd];
+    bool m_clipboardReadPending[kClipboardEnd] = {};
+    unsigned int m_clipboardReadAttempts[kClipboardEnd] = {};
+    EventQueueTimer* m_clipboardReadTimer = nullptr;
 
     // state saved when screen saver activates
     BaseClientProxy* m_activeSaver;
