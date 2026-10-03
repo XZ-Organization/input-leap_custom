@@ -27,7 +27,7 @@ namespace inputleap {
 class MSWindowsClipboardFacade : public IMSWindowsClipboardFacade
 {
 public:
-    virtual void write(HANDLE win32Data, UINT win32Format);
+    bool write(HANDLE win32Data, UINT win32Format) override;
 };
 
 } // namespace inputleap

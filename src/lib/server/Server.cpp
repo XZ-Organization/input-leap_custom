@@ -187,6 +187,7 @@ Server::Server(
 
 Server::~Server()
 {
+    cancelClipboardReadTimer();
 	if (m_mock) {
 		return;
 	}
@@ -1196,6 +1197,8 @@ void Server::handle_clipboard_grabbed(const Event& event, BaseClientProxy* grabb
          info.m_id, clipboard.m_clipboardOwner.c_str());
 	clipboard.m_clipboardOwner  = getName(grabber);
     clipboard.m_clipboardSeqNum = info.m_sequenceNumber;
+    m_clipboardReadPending[info.m_id] = false;
+    m_clipboardReadAttempts[info.m_id] = 0;
 
 	// clear the clipboard data (since it's not known at this point)
 	if (clipboard.m_clipboard.open(0)) {
@@ -1215,6 +1218,12 @@ void Server::handle_clipboard_grabbed(const Event& event, BaseClientProxy* grabb
             client->grabClipboard(info.m_id);
 		}
 	}
+    // leave() may queue this notification after switchScreen() has skipped
+    // reading a clipboard whose previous owner was remote. The primary has
+    // no separate sender to push that late copy to the now-active peer.
+    if (grabber == m_primaryClient && m_active != m_primaryClient) {
+        onClipboardChanged(grabber, info.m_id, info.m_sequenceNumber);
+    }
 }
 
 void Server::handle_clipboard_changed(const Event& event, BaseClientProxy* client)
@@ -1467,8 +1476,13 @@ void Server::onClipboardChanged(BaseClientProxy* sender, ClipboardID id, std::ui
 	if (!sender->getClipboard(id, &clipboard.m_clipboard)) {
 		LOG_DEBUG("ignored screen \"%s\" update of clipboard %d (failed to get clipboard)",
 				clipboard.m_clipboardOwner.c_str(), id);
+        if (sender == m_primaryClient) {
+            retryPrimaryClipboard(id);
+        }
 		return;
 	}
+    m_clipboardReadPending[id] = false;
+    m_clipboardReadAttempts[id] = 0;
 
 	// ignore if data hasn't changed
     std::string data = clipboard.m_clipboard.marshall();
@@ -1494,6 +1508,41 @@ void Server::onClipboardChanged(BaseClientProxy* sender, ClipboardID id, std::ui
 
 	// send the new clipboard to the active screen
 	m_active->setClipboard(id, &clipboard.m_clipboard);
+}
+
+void Server::cancelClipboardReadTimer()
+{
+    if (m_clipboardReadTimer != nullptr) {
+        m_events->remove_handler(EventType::TIMER, m_clipboardReadTimer);
+        m_events->deleteTimer(m_clipboardReadTimer);
+        m_clipboardReadTimer = nullptr;
+    }
+}
+
+void Server::retryPrimaryClipboard(ClipboardID id)
+{
+    if (++m_clipboardReadAttempts[id] > 20) {
+        m_clipboardReadPending[id] = false;
+        LOG_WARN("clipboard %d read retry limit reached; contents were not sent", id);
+        return;
+    }
+    m_clipboardReadPending[id] = true;
+    if (m_clipboardReadTimer != nullptr) {
+        return;
+    }
+    m_clipboardReadTimer = m_events->newOneShotTimer(0.05, nullptr);
+    m_events->add_handler(EventType::TIMER, m_clipboardReadTimer, [this](const auto&) {
+        cancelClipboardReadTimer();
+        for (ClipboardID retryId = 0; retryId < kClipboardEnd; ++retryId) {
+            if (!m_clipboardReadPending[retryId]) continue;
+            m_clipboardReadPending[retryId] = false;
+            auto& clipboard = m_clipboards[retryId];
+            if (m_enableClipboard && m_maximumClipboardSize != 0 &&
+                clipboard.m_clipboardOwner == getName(m_primaryClient)) {
+                onClipboardChanged(m_primaryClient, retryId, clipboard.m_clipboardSeqNum);
+            }
+        }
+    });
 }
 
 void

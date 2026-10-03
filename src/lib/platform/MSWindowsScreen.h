@@ -25,6 +25,7 @@
 #include "inputleap/DragInformation.h"
 #include "platform/synwinhk.h"
 #include <map>
+#include <memory>
 #include <string>
 
 #define WIN32_LEAN_AND_MEAN
@@ -37,6 +38,7 @@ class MSWindowsKeyState;
 class MSWindowsScreenSaver;
 class Thread;
 class MSWindowsDropTarget;
+class Clipboard;
 
 //! Implementation of IPlatformScreen for Microsoft Windows
 class MSWindowsScreen : public PlatformScreen {
@@ -227,6 +229,9 @@ private: // HACK
     void send_drag_thread();
 
 private:
+    bool applyPendingClipboard();
+    void cancelClipboardRetry();
+
     struct HotKeyItem {
     public:
         HotKeyItem(UINT vk, UINT modifiers);
@@ -295,6 +300,10 @@ private:
     HWND m_window;
     HWND m_nextClipboardWindow;
     DWORD m_clipboardSequence;
+    std::unique_ptr<Clipboard> m_pendingClipboard;
+    DWORD m_pendingClipboardSequence = 0;
+    unsigned int m_clipboardApplyAttempts = 0;
+    EventQueueTimer* m_clipboardRetryTimer = nullptr;
 
     // one desk per desktop and a cond var to communicate with it
     MSWindowsDesks* m_desks;

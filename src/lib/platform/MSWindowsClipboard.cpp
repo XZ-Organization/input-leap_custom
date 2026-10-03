@@ -103,12 +103,12 @@ MSWindowsClipboard::clear()
     return true;
 }
 
-bool MSWindowsClipboard::copyFrom(const IClipboard& src)
+MSWindowsClipboard::CopyResult MSWindowsClipboard::copyFrom(const IClipboard& src, DWORD* sequence)
 {
     using ClipboardHandle = std::unique_ptr<void, decltype(&GlobalFree)>;
     std::vector<std::pair<UINT, ClipboardHandle>> converted;
     if (!src.open(src.getTime())) {
-        return false;
+        return CopyResult::Unavailable;
     }
     for (const auto* converter : m_converters) {
         if (src.has(converter->getFormat())) {
@@ -122,20 +122,29 @@ bool MSWindowsClipboard::copyFrom(const IClipboard& src)
     src.close();
     if (converted.empty()) {
         LOG_DEBUG("preserving local clipboard: no supported remote contents");
-        return false;
+        return CopyResult::Unsupported;
     }
     if (!open(src.getTime())) {
-        return false;
+        return CopyResult::Unavailable;
     }
-    const bool cleared = clear();
-    if (cleared) {
+    if (sequence != nullptr && *sequence != GetClipboardSequenceNumber()) {
+        close();
+        return CopyResult::Superseded;
+    }
+    bool success = clear();
+    if (success) {
         for (auto& format : converted) {
             // The facade takes ownership, including freeing on failure.
-            m_facade->write(format.second.release(), format.first);
+            if (!m_facade->write(format.second.release(), format.first)) {
+                success = false;
+            }
         }
     }
+    if (sequence != nullptr) {
+        *sequence = GetClipboardSequenceNumber();
+    }
     close();
-    return cleared;
+    return success ? CopyResult::Success : CopyResult::Unavailable;
 }
 
 void

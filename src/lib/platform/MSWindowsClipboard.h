@@ -55,7 +55,10 @@ public:
 
     // Stage supported formats before replacing Windows contents. An empty
     // or unsupported transfer is not a request to erase the local clipboard.
-    bool copyFrom(const IClipboard& src);
+    enum class CopyResult { Success, Unavailable, Unsupported, Superseded };
+    // If supplied, sequence is checked while the clipboard is locked and
+    // updated after our own writes, before another app can change it.
+    CopyResult copyFrom(const IClipboard& src, DWORD* sequence = nullptr);
 
     //! Handle a remote clipboard ownership notification
     /*!
