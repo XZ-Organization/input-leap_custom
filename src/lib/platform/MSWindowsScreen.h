@@ -42,6 +42,7 @@ class Clipboard;
 
 //! Implementation of IPlatformScreen for Microsoft Windows
 class MSWindowsScreen : public PlatformScreen {
+    friend class MSWindowsDisplayChangeTests;
 public:
     MSWindowsScreen(
         bool isPrimary,

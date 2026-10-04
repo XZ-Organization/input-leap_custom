@@ -1,4 +1,4 @@
-// Clipboard regressions run in a private, non-interactive window station.
+// Windows regressions run in a private, non-interactive window station.
 // Never use the user's clipboard, even when a test fails.
 #include "platform/MSWindowsScreen.h"
 #include "platform/MSWindowsClipboard.h"
@@ -112,6 +112,64 @@ Clipboard remoteText(const std::string& text)
     data.open(0); data.add(IClipboard::kText, text); data.close();
     return data;
 }
+}
+
+// Reuse the isolated desktop: never change the user's monitor layout or cursor.
+class MSWindowsDisplayChangeTests : public testing::Test {
+protected:
+    static void staleBounds(MSWindowsScreen& screen) {
+        screen.m_x -= 100;
+        screen.m_w += 100;
+    }
+    static void staleCenter(MSWindowsScreen& screen) {
+        screen.m_xCenter += 100;
+    }
+    static void poll(MSWindowsScreen& screen) { screen.handle_fixes(); }
+    static void notify(MSWindowsScreen& screen) { screen.onDisplayChange(); }
+};
+
+TEST_F(MSWindowsDisplayChangeTests, missedNotificationRecoversOnExistingPoll)
+{
+    withIsolatedClipboard([]() {
+        ClipboardScreen fixture;
+        auto& screen = *fixture.screen;
+        int changed = 0;
+        EXPECT_CALL(fixture.events, add_event(testing::_))
+            .WillRepeatedly([&](Event&& event) {
+                if (event.getType() == EventType::SCREEN_SHAPE_CHANGED) ++changed;
+            });
+        staleBounds(screen);
+        poll(screen);
+        EXPECT_EQ(1, changed);
+        std::int32_t x, y, w, h;
+        screen.getShape(x, y, w, h);
+        EXPECT_EQ(GetSystemMetrics(SM_XVIRTUALSCREEN), x);
+        EXPECT_EQ(GetSystemMetrics(SM_CXVIRTUALSCREEN), w);
+        // Repeated polls and a delayed notification must not trigger a loop.
+        poll(screen);
+        notify(screen);
+        EXPECT_EQ(1, changed);
+    });
+}
+
+TEST_F(MSWindowsDisplayChangeTests, primaryCenterChangeNotifiesWithUnchangedBounds)
+{
+    withIsolatedClipboard([]() {
+        ClipboardScreen fixture;
+        int changed = 0;
+        EXPECT_CALL(fixture.events, add_event(testing::_))
+            .WillRepeatedly([&](Event&& event) {
+                if (event.getType() == EventType::SCREEN_SHAPE_CHANGED) ++changed;
+            });
+        staleCenter(*fixture.screen);
+        notify(*fixture.screen);
+        EXPECT_EQ(1, changed);
+        std::int32_t x, y;
+        fixture.screen->getCursorCenter(x, y);
+        EXPECT_EQ(GetSystemMetrics(SM_CXSCREEN) / 2, x);
+        notify(*fixture.screen);
+        EXPECT_EQ(1, changed);
+    });
 }
 
 TEST(MSWindowsClipboardSafetyTests, primaryDoesNotReplayFinishedAsyncDelivery)
