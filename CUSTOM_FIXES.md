@@ -2,7 +2,7 @@
 
 This repository is based on Input Leap and carries the Windows service/watchdog fixes used by the XZ multi-PC setup.
 
-## Display-toggle recovery (2026-10-04, not deployed)
+## Display-toggle recovery (2026-10-04, PC1 deployed; PC2 pending)
 
 After a PC1 AHK2 monitor-layout toggle, the user reported connected but unusable
 screen switching, later recovering during diagnosis. A server-side switch was
@@ -23,8 +23,19 @@ Release and Debug; full Release passes 158/159 with the known unrelated daemon
 argument failure. Release server/client builds pass. Evidence is under
 `C:\Retention_Artifact\inputleap-setup\display-change-20261004`.
 These are verified recovery paths, not proof of the historical incident's sole
-cause. Real AHK-toggle verification remains required; no commit, merge or
-operational replacement has been performed for this change.
+cause. Real AHK-toggle verification remains required.
+
+PR #4 merged as `6a9d0992bc6683f50c237ed3f803bdb56ac2cbb3`; production cores
+were rebuilt from that clean source in `build-production-6a9d099`. PC1 deployed
+successfully with file equality, service/core startup, TCP 24800 listening and
+PC2 reconnection verified. The previously running GUI was restarted. Rollback
+files and registry exports are in
+`C:\Retention_Artifact\inputleap-setup\deployment-XZ04-20261004-130554`.
+The package result is `production-6a9d099\deployment-result.json` under the same
+artifact root. Configuration and service registration were preserved.
+PC2 remote administration still returns Access Denied; PC2 deployment is not
+confirmed. Use the [display-6a9d099 release ZIP](https://github.com/XZ-Organization/input-leap_custom/releases/tag/display-6a9d099)
+and run its `Deploy.ps1` from administrator PowerShell on PC2.
 
 ## Included fix
 
