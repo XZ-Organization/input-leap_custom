@@ -2,6 +2,30 @@
 
 This repository is based on Input Leap and carries the Windows service/watchdog fixes used by the XZ multi-PC setup.
 
+## Display-toggle recovery (2026-10-04, not deployed)
+
+After a PC1 AHK2 monitor-layout toggle, the user reported connected but unusable
+screen switching, later recovering during diagnosis. A server-side switch was
+logged at 12:54:24; that alone does not prove PC2 applied the input. The exact AHK
+script and failing transition have not been reproduced. Do not attribute this
+incident to Scroll Lock based on the stale October 3 daemon log.
+
+Windows now reconciles display geometry on its existing one-second maintenance
+timer, recovering stale bounds when WM_DISPLAYCHANGE is missed. Display-change
+handling also compares the primary warp center and multi-monitor state, rather
+than only the virtual desktop rectangle. Unchanged geometry emits no shape event.
+This does not restart the service or change the user's monitor configuration.
+
+Two regression tests inject stale cached geometry on a private desktop without
+changing real monitors: missed-notification recovery and center-only change.
+Both fail before the fix. Display/clipboard tests (53) pass 20 iterations in
+Release and Debug; full Release passes 158/159 with the known unrelated daemon
+argument failure. Release server/client builds pass. Evidence is under
+`C:\Retention_Artifact\inputleap-setup\display-change-20261004`.
+These are verified recovery paths, not proof of the historical incident's sole
+cause. Real AHK-toggle verification remains required; no commit, merge or
+operational replacement has been performed for this change.
+
 ## Included fix
 
 `MSWindowsWatchdog::shutdownExistingProcesses()` now recognizes the current Windows executable names:

@@ -1449,12 +1449,16 @@ MSWindowsScreen::onDisplayChange()
 {
     // screen resolution may have changed.  save old shape.
     std::int32_t xOld = m_x, yOld = m_y, wOld = m_w, hOld = m_h;
+    const auto xCenterOld = m_xCenter, yCenterOld = m_yCenter;
+    const bool multimonOld = m_multimon;
 
     // update shape
     updateScreenShape();
 
-    // do nothing if resolution hasn't changed
-    if (xOld != m_x || yOld != m_y || wOld != m_w || hOld != m_h) {
+    // A primary-monitor change can move the warp center without changing
+    // the virtual desktop bounds. It needs the same cursor/hook refresh.
+    if (xOld != m_x || yOld != m_y || wOld != m_w || hOld != m_h ||
+        xCenterOld != m_xCenter || yCenterOld != m_yCenter || multimonOld != m_multimon) {
         if (m_isPrimary) {
             // warp mouse to center if off screen
             if (!m_isOnScreen) {
@@ -1585,6 +1589,10 @@ MSWindowsScreen::updateScreenShape()
 
 void MSWindowsScreen::handle_fixes()
 {
+    // Display toggles may omit/coalesce WM_DISPLAYCHANGE. Reconcile using
+    // the existing one-second timer; unchanged geometry emits no event.
+    onDisplayChange();
+
     // fix clipboard chain
     fixClipboardViewer();
 
